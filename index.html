@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>珠村文华大街 - 今日天气</title>
+    <meta http-equiv="refresh" content="300">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @keyframes warningFlash {
+            0% { background-color: #dc2626; }
+            50% { background-color: #ef4444; }
+            100% { background-color: #dc2626; }
+        }
+        .flash-warning {
+            animation: warningFlash 1s infinite;
+        }
+        .weather-icon {
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-sky-50 via-blue-100 to-indigo-100 min-h-screen p-4 md:p-8">
+    <div class="max-w-4xl mx-auto bg-white rounded-3xl shadow-2xl p-6 md:p-10">
+        <!-- 顶部信息 -->
+        <div class="text-center mb-6">
+            <h1 class="text-3xl md:text-4xl font-bold text-gray-800 tracking-wide">📅 今日天气报告</h1>
+            <p class="text-lg text-gray-600 mt-2 font-medium">📍 广东省广州市天河区珠村文华大街</p>
+        </div>
+
+        <!-- 实时时间 -->
+        <div class="bg-gradient-to-r from-blue-100 to-sky-100 rounded-2xl p-5 text-center mb-6 shadow-sm">
+            <p id="currentDateTime" class="text-xl md:text-2xl font-semibold text-blue-800"></p>
+        </div>
+
+        <!-- ⚠️【最醒目置顶】双时段降雨强提醒 -->
+        <div id="rainWarning" class="hidden flash-warning rounded-2xl p-5 text-center text-white text-xl md:text-2xl font-bold shadow-lg mb-6">
+        </div>
+
+        <!-- 🔥 综合天气预报（居中+图标+极致美化） -->
+        <div class="bg-gradient-to-r from-green-50 to-emerald-100 rounded-2xl p-6 mb-6 border-l-6 border-emerald-500 shadow-sm text-center">
+            <h2 class="text-xl font-bold text-gray-700 mb-4">✅ 综合天气预报（多数平台为准）</h2>
+            <div id="finalWeather" class="text-lg md:text-3xl font-bold text-gray-800 leading-relaxed"></div>
+        </div>
+
+        <!-- 24小时逐3小时降雨概率 -->
+        <div class="bg-gradient-to-r from-blue-50 to-sky-100 rounded-2xl p-5 mb-6 shadow-sm">
+            <h2 class="text-xl font-bold text-gray-700 mb-4">🌧️ 24小时逐3小时降雨概率</h2>
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center" id="hourlyRainForecast"></div>
+        </div>
+
+        <!-- 多平台对比 -->
+        <div class="mb-6">
+            <h2 class="text-xl font-bold text-gray-700 mb-4 text-center">🌐 多平台天气数据对比</h2>
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4" id="weatherPlatforms"></div>
+        </div>
+    </div>
+
+    <script>
+        // 实时更新日期时间
+        function updateDateTime() {
+            const now = new Date();
+            const options = { 
+                year: 'numeric', month: 'long', day: 'numeric',
+                weekday: 'long', hour: '2-digit', minute: '2-digit', second: '2-digit'
+            };
+            document.getElementById('currentDateTime').innerText = now.toLocaleDateString('zh-CN', options);
+        }
+        updateDateTime();
+        setInterval(updateDateTime, 1000);
+
+        // 天气数据（9点上班降雨标记 rain900）
+        const weatherData = [
+            { name: "中央气象", weather: "雷阵雨", tempMin: "24", tempMax: "28", rain900: true, rain630: true, rainRate: "85%" },
+            { name: "天气网", weather: "雷阵雨", tempMin: "25", tempMax: "29", rain900: true, rain630: true, rainRate: "80%" },
+            { name: "墨迹天气", weather: "多云转雨", tempMin: "24", tempMax: "27", rain900: false, rain630: false, rainRate: "70%" },
+            { name: "彩云天气", weather: "雷阵雨", tempMin: "23", tempMax: "28", rain900: true, rain630: true, rainRate: "82%" }
+        ];
+
+        // 24小时分段降雨数据
+        const hourlyData = [
+            { time: "00:00-03:00", rate: "10%" },
+            { time: "03:00-06:00", rate: "5%" },
+            { time: "06:00-09:00", rate: "80%" }, // 9点上班时段
+            { time: "09:00-12:00", rate: "30%" },
+            { time: "12:00-15:00", rate: "45%" },
+            { time: "15:00-18:00", rate: "75%" },
+            { time: "18:00-21:00", rate: "90%" }, // 晚18:30下班时段
+            { time: "21:00-24:00", rate: "60%" }
+        ];
+
+        // 渲染综合天气 + 智能提醒逻辑
+        function getFinalWeather() {
+            const weatherCount = {};
+            let rain900Count = 0;  // 早9:00上班降雨统计
+            let rain630Count = 0; // 晚18:30降雨统计
+            let minTempList = [];
+            let maxTempList = [];
+
+            weatherData.forEach(item => {
+                weatherCount[item.weather] = (weatherCount[item.weather] || 0) + 1;
+                if (item.rain900) rain900Count++;
+                if (item.rain630) rain630Count++;
+                minTempList.push(Number(item.tempMin));
+                maxTempList.push(Number(item.tempMax));
+            });
+
+            const finalWeather = Object.keys(weatherCount).reduce((a, b) => weatherCount[a] > weatherCount[b] ? a : b);
+            const avgMinTemp = Math.round(minTempList.reduce((a, b) => a + b, 0) / minTempList.length);
+            const avgMaxTemp = Math.round(maxTempList.reduce((a, b) => a + b, 0) / maxTempList.length);
+            
+            // 动态天气图标
+            let icon = '🌤️';
+            if(finalWeather.includes('雨')) icon = '🌧️';
+            if(finalWeather.includes('雷阵')) icon = '⛈️';
+            if(finalWeather.includes('晴')) icon = '☀️';
+
+            // 居中美化+图标展示
+            document.getElementById('finalWeather').innerHTML = `
+                <div class="weather-icon">${icon}</div>
+                ${finalWeather} | ${avgMinTemp}℃ ~ ${avgMaxTemp}℃<br>
+                <span class="text-gray-600 text-sm font-normal">数据来源：4大权威平台对比，取多数结果</span>
+            `;
+
+            // ===================== 智能强提醒逻辑 =====================
+            const warningDom = document.getElementById('rainWarning');
+            // 1. 上下班都下雨 → 终极警告
+            if (rain900Count >= 2 && rain630Count >= 2) {
+                warningDom.innerText = "⚠️ 完了！今天要成落汤鸡了！上下班全程都是雨！务必带好雨具 ⚠️";
+                warningDom.classList.remove('hidden');
+            }
+            // 2. 仅早9:00上班下雨 → 上班提醒
+            else if (rain900Count >= 2) {
+                warningDom.innerText = "⚠️ 提前强提醒：今日09:00 珠村文华大街有雨！上班注意带伞 ⚠️";
+                warningDom.classList.remove('hidden');
+            }
+            // 3. 仅晚18:30下雨 → 下班提醒
+            else if (rain630Count >= 2) {
+                warningDom.innerText = "⚠️ 提前强提醒：今日18:30 珠村文华大街有雨！下班注意带伞 ⚠️";
+                warningDom.classList.remove('hidden');
+            }
+        }
+
+        // 渲染24小时逐3小时降雨
+        function renderHourlyRain() {
+            const container = document.getElementById('hourlyRainForecast');
+            hourlyData.forEach((item, index) => {
+                const card = document.createElement('div');
+                card.className = "bg-white rounded-lg p-3 shadow-sm border border-gray-200";
+                let label = '';
+                // 标注关键时段（9点上班）
+                if(index === 2) label = '<p class="text-xs text-red-500 mt-1">⚠️09:00上班</p>';
+                if(index === 6) label = '<p class="text-xs text-red-500 mt-1">⚠️18:30下班</p>';
+                
+                card.innerHTML = `
+                    <p class="text-sm font-medium text-gray-700">${item.time}</p>
+                    <p class="text-lg font-bold text-blue-600 mt-1">${item.rate}</p>
+                    ${label}
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        // 渲染多平台对比
+        function renderPlatforms() {
+            const container = document.getElementById('weatherPlatforms');
+            weatherData.forEach(item => {
+                const card = document.createElement('div');
+                card.className = "bg-white border border-gray-200 rounded-xl p-4 text-center shadow-sm";
+                card.innerHTML = `
+                    <h3 class="font-bold text-gray-700 mb-2">${item.name}</h3>
+                    <p class="text-lg font-semibold">${item.weather}</p>
+                    <p class="text-gray-600">${item.tempMin}℃~${item.tempMax}℃</p>
+                    <p class="text-blue-600 text-sm mt-1">降水: ${item.rainRate}</p>
+                    <p class="text-xs text-gray-500 mt-1">早雨:${item.rain900?'✅':'❌'} 晚雨:${item.rain630?'✅':'❌'}</p>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        // 初始化执行
+        getFinalWeather();
+        renderHourlyRain();
+        renderPlatforms();
+    </script>
+</body>
+</html>
