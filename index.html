@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>广州天河区</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: "Microsoft YaHei", sans-serif; 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+            min-height: 100vh; 
+            padding: 20px; 
+        }
+        .container { 
+            max-width: 1000px; 
+            margin: 0 auto; 
+            background: white; 
+            border-radius: 20px; 
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3); 
+            overflow: hidden; 
+        }
+        .header { 
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%); 
+            color: white; 
+            padding: 30px; 
+            text-align: center; 
+        }
+        .header h1 { font-size: 32px; margin-bottom: 10px; }
+        .header .location { font-size: 18px; opacity: 0.9; }
+        .header .date { font-size: 16px; margin-top: 10px; opacity: 0.8; }
+        .alert-box { 
+            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%); 
+            color: white; 
+            padding: 20px; 
+            margin: 20px; 
+            border-radius: 15px; 
+            animation: pulse 2s infinite; 
+        }
+        @keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.02); } }
+        .alert-box h2 { font-size: 24px; margin-bottom: 10px; }
+        .content { padding: 30px; }
+        .section { margin-bottom: 30px; }
+        .section-title { 
+            font-size: 22px; 
+            color: #2c3e50; 
+            margin-bottom: 15px; 
+            padding-bottom: 10px; 
+            border-bottom: 3px solid #3498db; 
+        }
+        .weather-grid { 
+            display: grid; 
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); 
+            gap: 15px; 
+            margin-top: 15px; 
+        }
+        .weather-card { 
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%); 
+            padding: 20px; 
+            border-radius: 15px; 
+            text-align: center; 
+        }
+        .weather-card .time { 
+            font-size: 18px; 
+            font-weight: bold; 
+            color: #2c3e50; 
+            margin-bottom: 10px; 
+        }
+        .weather-card .temp { 
+            font-size: 36px; 
+            font-weight: bold; 
+            color: #e74c3c; 
+            margin: 10px 0; 
+        }
+        .weather-card .desc { font-size: 16px; color: #7f8c8d; }
+        .platform-table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        .platform-table th { background: #34495e; color: white; padding: 12px; text-align: left; }
+        .platform-table td { padding: 12px; border-bottom: 1px solid #ecf0f1; }
+        .platform-table tr:hover { background: #f8f9fa; }
+        .suggestions { background: #ecf0f1; padding: 20px; border-radius: 15px; margin-top: 15px; }
+        .suggestions ul { list-style: none; padding-left: 0; }
+        .suggestions li { padding: 8px 0; padding-left: 25px; position: relative; }
+        .suggestions li:before { content: "✓"; position: absolute; left: 0; color: #27ae60; font-weight: bold; }
+        .footer { text-align: center; padding: 20px; background: #f8f9fa; color: #7f8c8d; font-size: 14px; }
+        .update-time { color: #e74c3c; font-weight: bold; }
+        .refresh-btn { 
+            background: #3498db; 
+            color: white; 
+            border: none; 
+            padding: 10px 20px; 
+            border-radius: 5px; 
+            cursor: pointer; 
+            font-size: 14px; 
+            margin-top: 10px; 
+        }
+        .refresh-btn:hover { background: #2980b9; }
+        
+        @media (max-width: 768px) {
+            .header h1 { font-size: 24px; }
+            .header .location { font-size: 16px; }
+            .content { padding: 15px; }
+            .weather-card .temp { font-size: 28px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🌧️ 天气报告</h1>
+            <div class="location">广东省广州市天河区珠村文华大街</div>
+            <div class="date" id="currentDate"></div>
+        </div>
+        
+        <div class="alert-box">
+            <h2>⚠️ 强提醒：下午6点半有雨！</h2>
+            <p>根据气象预报，下午6点半左右有强雷雨，请务必携带雨具，注意交通安全！避免户外活动，远离低洼易积水路段。</p>
+        </div>
+        
+        <div class="content">
+            <div class="section">
+                <h2 class="section-title">📊 多平台对比分析</h2>
+                <table class="platform-table">
+                    <thead><tr><th>预报平台</th><th>天气状况</th><th>温度范围</th><th>降水概率</th></tr></thead>
+                    <tbody>
+                        <tr><td><strong>广州气象台</strong></td><td>大到暴雨，局部大暴雨</td><td>24~28℃</td><td>极高</td></tr>
+                        <tr><td><strong>东方天气</strong></td><td>多云转大雨</td><td>27~31℃</td><td>高</td></tr>
+                        <tr><td><strong>中国天气网</strong></td><td>暴雨转中雨</td><td>23~27℃</td><td>极高</td></tr>
+                        <tr><td><strong>本地宝</strong></td><td>雷阵雨转中雨</td><td>25~30℃</td><td>高</td></tr>
+                    </tbody>
+                </table>
+                <p style="margin-top: 15px; padding: 15px; background: #fff3cd; border-radius: 10px; border-left: 4px solid #ffc107;">
+                    <strong>多数平台结论：</strong>今天有大到暴雨，伴有强对流天气（8-10级短时大风、雷电、短时强降水）
+                </p>
+            </div>
+            
+            <div class="section">
+                <h2 class="section-title">⏰ 24小时详细预报</h2>
+                <div class="weather-grid">
+                    <div class="weather-card">
+                        <div class="time">上午 (6:00-12:00)</div>
+                        <div class="temp">24~28℃</div>
+                        <div class="desc">多云间阴天<br>有雷阵雨</div>
+                    </div>
+                    <div class="weather-card" style="background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);">
+                        <div class="time">下午 (12:00-18:00)</div>
+                        <div class="temp">27~29℃</div>
+                        <div class="desc"><strong>大到暴雨</strong><br>局部大暴雨<br>⚠️ 8-10级短时大风</div>
+                    </div>
+                    <div class="weather-card" style="background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%);">
+                        <div class="time">傍晚 (18:00-21:00)</div>
+                        <div class="temp">23~25℃</div>
+                        <div class="desc"><strong>强雷雨</strong><br>⚠️ 下班高峰期<br>注意安全</div>
+                    </div>
+                    <div class="weather-card">
+                        <div class="time">夜间 (21:00-24:00)</div>
+                        <div class="temp">23~25℃</div>
+                        <div class="desc">中雨转小雨</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="section">
+                <h2 class="section-title">⚠️ 气象预警信息</h2>
+                <div style="background: #fff3cd; padding: 15px; border-radius: 10px; border-left: 4px solid #ff6b6b;">
+                    <p><strong>当前生效预警：</strong></p>
+                    <ul style="margin-top: 10px; margin-left: 20px;">
+                        <li>雷雨大风黄色预警信号（天河区）</li>
+                        <li>暴雨黄色预警信号（可能升级）</li>
+                    </ul>
+                </div>
+            </div>
+            
+            <div class="section">
+                <h2 class="section-title">💡 生活建议</h2>
+                <div class="suggestions">
+                    <ul>
+                        <li><strong>穿衣：</strong>建议穿棉麻面料的衬衫、薄长裙、薄T恤等清凉透气的衣服</li>
+                        <li><strong>出行：</strong>非必要不外出，外出请携带雨具</li>
+                        <li><strong>交通：</strong>预计下班高峰期交通拥堵，建议提前或延后出行</li>
+                        <li><strong>安全：</strong>注意防御雷电、短时大风、城乡积涝</li>
+                        <li><strong>雨具：</strong>下午6点半左右有强雷雨，务必携带雨具！</li>
+                    </ul>
+                </div>
+            </div>
+            
+            <div class="section">
+                <h2 class="section-title">📅 未来三天趋势</h2>
+                <div class="weather-grid" id="futureWeather"></div>
+            </div>
+        </div>
+        
+        <div class="footer">
+            <p>数据来源：广州气象台、中国天气网、东方天气、本地宝等权威平台</p>
+            <p class="update-time" id="updateTime"></p>
+            <p style="margin-top: 10px;">本报告由自动化脚本生成 | 双击桌面图标即可更新</p>
+            <button class="refresh-btn" onclick="location.reload()">🔄 刷新页面</button>
+        </div>
+    </div>
+    
+    <script>
+        // 更新日期
+        const now = new Date();
+        const days = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六'];
+        document.getElementById('currentDate').textContent = 
+            `${now.getFullYear()}年${now.getMonth() + 1}月${now.getDate()}日 ${days[now.getDay()]}`;
+        
+        // 更新时间
+        document.getElementById('updateTime').textContent = 
+            `更新时间：${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
+        
+        // 未来三天天气
+        const futureWeather = document.getElementById('futureWeather');
+        for (let i = 1; i <= 3; i++) {
+            const futureDate = new Date(now);
+            futureDate.setDate(now.getDate() + i);
+            const card = document.createElement('div');
+            card.className = 'weather-card';
+            card.innerHTML = `
+                <div class="time">${futureDate.getMonth() + 1}月${futureDate.getDate()}日</div>
+                <div class="temp">${i === 1 ? '23~29℃' : i === 2 ? '23~28℃' : '24~28℃'}</div>
+                <div class="desc">${i === 1 ? '中到大雨<br>转阵雨' : i === 2 ? '多云间阴天<br>有雷阵雨' : '小雨转阴'}</div>
+            `;
+            futureWeather.appendChild(card);
+        }
+    </script>
+</body>
+</html>
