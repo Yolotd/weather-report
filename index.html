@@ -31,7 +31,6 @@
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
-        /* 手机优化：卡片内边距微调 */
         @media (max-width: 640px) {
             .container-padding {
                 padding-left: 1rem;
@@ -54,7 +53,7 @@
             </button>
         </div>
 
-        <!-- 搜索/定位栏（保留灵活切换城市） -->
+        <!-- 搜索/定位栏 -->
         <div class="bg-gray-50 rounded-2xl p-3 mb-5 shadow-sm border">
             <div class="flex flex-col sm:flex-row gap-2">
                 <input type="text" id="city-input" placeholder="输入城市名 (例: 广州、北京、上海)" class="flex-grow p-2 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-400 text-sm">
@@ -63,10 +62,8 @@
             </div>
         </div>
 
-        <!-- 预警区域：台风预警 + 高温预警 -->
-        <div id="alert-area" class="mb-5 space-y-2">
-            <!-- 动态插入台风提醒和高温度提醒 -->
-        </div>
+        <!-- 预警区域：仅在有台风或高温时显示内容 -->
+        <div id="alert-area" class="mb-5 space-y-2"></div>
 
         <!-- 实时日期时间 -->
         <div class="bg-gradient-to-r from-blue-100 to-sky-100 rounded-2xl p-3 text-center mb-5 shadow-sm">
@@ -81,7 +78,7 @@
             </div>
         </div>
 
-        <!-- 上下班关键时段 单独展示 -->
+        <!-- 上下班关键时段 -->
         <div class="bg-gradient-to-r from-amber-50 to-orange-100 rounded-2xl p-4 mb-5 shadow-sm">
             <h2 class="text-lg font-bold text-gray-700 mb-3 text-center">🚇 上下班降雨预报</h2>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-center">
@@ -127,7 +124,7 @@
         let currentName = DEFAULT_NAME;
         let autoRefreshTimer = null;
 
-        // 辅助：格式化时间（每秒更新）
+        // 更新时间（每秒）
         function updateDateTime() {
             const now = new Date();
             const opt = { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long', hour: '2-digit', minute: '2-digit', second: '2-digit' };
@@ -146,13 +143,13 @@
             return map[code] || "🌡️";
         }
 
-        // 显示台风预警（基于 warnings 数组）和高温预警
+        // 更新预警区域：只显示台风和高温，无内容时清空区域
         function updateAlerts(data, dailyMaxTempToday) {
             const alertDiv = document.getElementById('alert-area');
-            alertDiv.innerHTML = '';
+            alertDiv.innerHTML = '';   // 先清空
             let hasAlert = false;
 
-            // 1. 台风预警：检查 warnings 数组中是否有台风相关事件
+            // 1. 台风预警
             if (data.warnings && data.warnings.length) {
                 const typhoonWarnings = data.warnings.filter(w => {
                     const event = w.event ? w.event.toLowerCase() : '';
@@ -189,9 +186,7 @@
                 `;
             }
 
-            if (!hasAlert) {
-                alertDiv.innerHTML = `<div class="bg-gray-100 text-gray-500 p-2 rounded-xl text-center text-sm">暂无台风或高温预警</div>`;
-            }
+            // 没有任何预警时，alert-area 保持为空（什么都不显示）
         }
 
         // 核心天气获取函数
@@ -202,11 +197,11 @@
             document.getElementById('dailyForecast').innerHTML = `<div class="col-span-3 text-center py-4 text-gray-500">加载中...</div>`;
             document.getElementById('workRainRate').innerText = '--%';
             document.getElementById('offRainRate').innerText = '--%';
-            document.getElementById('alert-area').innerHTML = `<div class="text-gray-400 text-center text-sm">检查预警中...</div>`;
+            // 预警区域清空，等数据返回后再填充
+            document.getElementById('alert-area').innerHTML = '';
 
             try {
                 const timezone = 'Asia/Shanghai';
-                // 请求：当前 + 小时级(降水概率) + 每日 + 预警
                 const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,weather_code,wind_speed_10m&hourly=precipitation_probability,temperature_2m,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min&timezone=${timezone}&forecast_days=3&warnings=true`;
                 const resp = await fetch(url);
                 if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
@@ -226,10 +221,10 @@
 
                 // 每日数据（用于高温预警）
                 const dailyMaxTempToday = Math.round(data.daily.temperature_2m_max[0]);
-                // 台风预警 + 高温
+                // 更新台风 + 高温预警
                 updateAlerts(data, dailyMaxTempToday);
 
-                // 上下班降雨概率（小时级）
+                // ---------- 上下班降雨概率 ----------
                 const hourlyTimes = data.hourly.time;
                 const hourlyProbs = data.hourly.precipitation_probability;
                 const now = new Date();
@@ -271,10 +266,7 @@
                 document.getElementById('workRainStatus').innerHTML = workAvg >= 60 ? "⚠️ 有雨风险，带伞" : "✅ 无雨，轻松出行";
                 document.getElementById('offRainStatus').innerHTML = offAvg >= 60 ? "⚠️ 有雨风险，带伞" : "✅ 无雨，愉快下班";
 
-                // 强提醒（上下班降雨闪烁）单独顶部加一个？保留原代码风格，但原代码中是用独立区域闪红，我们可以复用，但注意不要和预警冲突，为了简洁，利用原有的 rainWarning 区域？原代码未使用该区域，我们直接用 alert-area 已经包含了台风高温，上下班降雨风险也可以再加一个闪烁条？可选，但为了不过度，不另加。
-                // 但是为了保留原设计风格，我们额外添加一个降雨风险闪烁条（可选），但用户没说，我们不加，专注于台风高温。
-                
-                // 逐6小时降雨概率
+                // ---------- 逐6小时降雨概率 ----------
                 const startIdx = hourlyTimes.findIndex(t => t >= now.toISOString().slice(0,16)+':00');
                 const validStart = startIdx !== -1 ? startIdx : 0;
                 const periods = [
@@ -339,18 +331,17 @@
                 document.getElementById('currentWeather').innerHTML = `<div class="text-red-500">天气数据加载失败：${err.message}</div>`;
                 document.getElementById('hourlyRainForecast').innerHTML = `<div class="col-span-4 text-red-500 text-center">获取失败，请稍后重试</div>`;
                 document.getElementById('dailyForecast').innerHTML = `<div class="col-span-3 text-red-500 text-center">获取失败</div>`;
-                document.getElementById('alert-area').innerHTML = `<div class="text-red-400 text-center">预警信息获取失败</div>`;
+                document.getElementById('alert-area').innerHTML = ''; // 出错时也不显示无关内容
             }
         }
 
-        // 刷新包装（重置自动刷新计时器）
+        // 刷新包装（重置自动刷新定时器）
         function refreshWeather() {
             fetchWeather(currentLat, currentLon, currentName);
-            // 重置自动刷新定时器
             if (autoRefreshTimer) clearInterval(autoRefreshTimer);
             autoRefreshTimer = setInterval(() => {
                 fetchWeather(currentLat, currentLon, currentName);
-            }, 10 * 60 * 1000); // 10分钟
+            }, 10 * 60 * 1000);
         }
 
         // 地理编码
@@ -375,7 +366,7 @@
                 currentLat = loc.lat;
                 currentLon = loc.lon;
                 currentName = loc.name;
-                refreshWeather(); // 刷新并重置定时器
+                refreshWeather();
             } catch (err) {
                 alert(err.message);
             }
@@ -401,14 +392,12 @@
             });
         }
 
-        // 手动刷新按钮
-        document.getElementById('manual-refresh-btn').addEventListener('click', () => {
-            refreshWeather();
-        });
+        // 绑定事件
+        document.getElementById('manual-refresh-btn').addEventListener('click', () => refreshWeather());
         document.getElementById('search-btn').addEventListener('click', onSearch);
         document.getElementById('auto-locate-btn').addEventListener('click', onAutoLocate);
 
-        // 初始化加载并启动自动刷新
+        // 启动
         refreshWeather();
     </script>
 </body>
