@@ -2,9 +2,8 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>珠村文华大街 - 今日天气</title>
-    <meta http-equiv="refresh" content="300">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>珠村文华大街 - 实时天气看板</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @keyframes warningFlash {
@@ -19,156 +18,369 @@
             font-size: 2.5rem;
             margin-bottom: 0.5rem;
         }
+        .loading-spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #3498db;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
     </style>
 </head>
 <body class="bg-gradient-to-br from-sky-50 via-blue-100 to-indigo-100 min-h-screen p-4 md:p-8">
     <div class="max-w-4xl mx-auto bg-white rounded-3xl shadow-2xl p-6 md:p-10">
+        <!-- 标题与位置 -->
         <div class="text-center mb-6">
             <h1 class="text-3xl md:text-4xl font-bold text-gray-800 tracking-wide">📅 今日天气报告</h1>
-            <p class="text-lg text-gray-600 mt-2 font-medium">📍 广东省广州市天河区珠村文华大街</p>
+            <p id="location-name" class="text-lg text-gray-600 mt-2 font-medium">📍 广东省广州市天河区珠村文华大街</p>
+            <p class="text-xs text-gray-400 mt-1">⚡ 数据来自 Open-Meteo 真实天气，每小时更新</p>
         </div>
 
+        <!-- 搜索/定位栏（可选，保留便捷性） -->
+        <div class="bg-gray-50 rounded-2xl p-4 mb-6 shadow-sm border">
+            <div class="flex flex-col sm:flex-row gap-3">
+                <input type="text" id="city-input" placeholder="输入城市名 (例如: 广州、北京、上海)" class="flex-grow p-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-400">
+                <button id="search-btn" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-6 rounded-xl transition shadow-md">🔍 搜索</button>
+                <button id="auto-locate-btn" class="bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-6 rounded-xl transition shadow-md">📍 自动定位</button>
+            </div>
+        </div>
+
+        <!-- 实时日期时间 -->
         <div class="bg-gradient-to-r from-blue-100 to-sky-100 rounded-2xl p-5 text-center mb-6 shadow-sm">
             <p id="currentDateTime" class="text-xl md:text-2xl font-semibold text-blue-800"></p>
         </div>
 
-        <!-- ⚠️ 置顶强提醒（8-9 / 18-19 精准触发） -->
+        <!-- 置顶强提醒（动态显示） -->
         <div id="rainWarning" class="hidden flash-warning rounded-2xl p-5 text-center text-white text-xl md:text-2xl font-bold shadow-lg mb-6">
         </div>
 
-        <!-- 综合天气（居中+图标） -->
-        <div class="bg-gradient-to-r from-green-50 to-emerald-100 rounded-2xl p-6 mb-6 border-l-6 border-emerald-500 shadow-sm text-center">
-            <h2 class="text-xl font-bold text-gray-700 mb-4">✅ 综合天气预报（多数平台为准）</h2>
-            <div id="finalWeather" class="text-lg md:text-3xl font-bold text-gray-800 leading-relaxed"></div>
+        <!-- 综合天气预报（当前天气） -->
+        <div class="bg-gradient-to-r from-green-50 to-emerald-100 rounded-2xl p-6 mb-6 border-l-4 border-emerald-500 shadow-sm text-center">
+            <h2 class="text-xl font-bold text-gray-700 mb-4">✅ 当前实况天气</h2>
+            <div id="currentWeather" class="text-lg md:text-3xl font-bold text-gray-800 leading-relaxed">
+                <div class="loading-spinner"></div>
+            </div>
         </div>
 
-        <!-- 24小时 · 6小时一个时段（共4段） -->
+        <!-- 上下班关键时段 单独提取展示 -->
+        <div class="bg-gradient-to-r from-amber-50 to-orange-100 rounded-2xl p-5 mb-6 shadow-sm">
+            <h2 class="text-xl font-bold text-gray-700 mb-4 text-center">🚇 上下班关键时段降雨预报</h2>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-center">
+                <div class="bg-white p-4 rounded-xl shadow-sm border">
+                    <p class="text-red-600 font-bold text-lg">⏰ 08:00 - 09:00 上班</p>
+                    <p id="workRainRate" class="text-xl font-bold text-blue-600 mt-2">--%</p>
+                    <p id="workRainStatus" class="text-lg mt-1">加载中...</p>
+                </div>
+                <div class="bg-white p-4 rounded-xl shadow-sm border">
+                    <p class="text-red-600 font-bold text-lg">⏰ 18:00 - 19:00 下班</p>
+                    <p id="offRainRate" class="text-xl font-bold text-blue-600 mt-2">--%</p>
+                    <p id="offRainStatus" class="text-lg mt-1">加载中...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 24小时 6小时一段 动态降雨概率 -->
         <div class="bg-gradient-to-r from-blue-50 to-sky-100 rounded-2xl p-5 mb-6 shadow-sm">
-            <h2 class="text-xl font-bold text-gray-700 mb-4 text-center">🌧️ 24小时 逐6小时降雨概率</h2>
-            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center" id="hourlyRainForecast"></div>
+            <h2 class="text-xl font-bold text-gray-700 mb-4 text-center">🌧️ 24小时逐6小时降雨概率</h2>
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center" id="hourlyRainForecast">
+                <div class="bg-white p-3 rounded-lg shadow">加载中...</div>
+            </div>
         </div>
 
-        <!-- 多平台对比 -->
+        <!-- 未来几天预报卡片 -->
         <div class="mb-6">
-            <h2 class="text-xl font-bold text-gray-700 mb-4 text-center">🌐 多平台天气数据对比</h2>
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4" id="weatherPlatforms"></div>
+            <h2 class="text-xl font-bold text-gray-700 mb-4 text-center">📅 未来 3 天预报</h2>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4" id="dailyForecast"></div>
         </div>
     </div>
 
     <script>
-        // 实时时间
+        // 珠村文华大街的精确经纬度（广州天河区珠村）
+        const DEFAULT_LAT = 23.1200;
+        const DEFAULT_LON = 113.4100;
+        const DEFAULT_NAME = "广东省广州市天河区珠村文华大街";
+
+        let currentLat = DEFAULT_LAT;
+        let currentLon = DEFAULT_LON;
+        let currentName = DEFAULT_NAME;
+
+        // 辅助：格式化时间
         function updateDateTime() {
             const now = new Date();
-            const options = { 
-                year: 'numeric', month: 'long', day: 'numeric',
-                weekday: 'long', hour: '2-digit', minute: '2-digit', second: '2-digit'
-            };
-            document.getElementById('currentDateTime').innerText = now.toLocaleDateString('zh-CN', options);
+            const opt = { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long', hour: '2-digit', minute: '2-digit', second: '2-digit' };
+            document.getElementById('currentDateTime').innerText = now.toLocaleDateString('zh-CN', opt);
         }
         updateDateTime();
         setInterval(updateDateTime, 1000);
 
-        // 天气数据（精准：8-9点上班雨，18-19点下班雨）
-        const weatherData = [
-            { name: "中央气象", weather: "雷阵雨", tempMin: "24", tempMax: "28", rain0809: true, rain1819: true, rainRate: "85%" },
-            { name: "天气网", weather: "雷阵雨", tempMin: "25", tempMax: "29", rain0809: true, rain1819: true, rainRate: "80%" },
-            { name: "墨迹天气", weather: "多云转雨", tempMin: "24", tempMax: "27", rain0809: false, rain1819: false, rainRate: "70%" },
-            { name: "彩云天气", weather: "雷阵雨", tempMin: "23", tempMax: "28", rain0809: true, rain1819: true, rainRate: "82%" }
-        ];
-
-        // 24小时 → 6小时间隔（4个时段）
-        const hourlyData = [
-            { time: "00:00-06:00", rate: "10%" },
-            { time: "06:00-12:00", rate: "80%" },
-            { time: "12:00-18:00", rate: "75%" },
-            { time: "18:00-24:00", rate: "90%" }
-        ];
-
-        // 综合天气 + 精准提醒逻辑
-        function getFinalWeather() {
-            const weatherCount = {};
-            let rain0809Count = 0;  // 8:00-9:00 上班雨
-            let rain1819Count = 0;  // 18:00-19:00 下班雨
-            let minTempList = [];
-            let maxTempList = [];
-
-            weatherData.forEach(item => {
-                weatherCount[item.weather] = (weatherCount[item.weather] || 0) + 1;
-                if (item.rain0809) rain0809Count++;
-                if (item.rain1819) rain1819Count++;
-                minTempList.push(Number(item.tempMin));
-                maxTempList.push(Number(item.tempMax));
-            });
-
-            const finalWeather = Object.keys(weatherCount).reduce((a, b) => weatherCount[a] > weatherCount[b] ? a : b);
-            const avgMinTemp = Math.round(minTempList.reduce((a, b) => a + b, 0) / minTempList.length);
-            const avgMaxTemp = Math.round(maxTempList.reduce((a, b) => a + b, 0) / maxTempList.length);
-            
-            let icon = '🌤️';
-            if(finalWeather.includes('雨')) icon = '🌧️';
-            if(finalWeather.includes('雷阵')) icon = '⛈️';
-            if(finalWeather.includes('晴')) icon = '☀️';
-
-            document.getElementById('finalWeather').innerHTML = `
-                <div class="weather-icon">${icon}</div>
-                ${finalWeather} | ${avgMinTemp}℃ ~ ${avgMaxTemp}℃<br>
-                <span class="text-gray-600 text-sm font-normal">数据来源：4大权威平台对比，取多数结果</span>
-            `;
-
-            // ===================== 【精准小时提醒】 =====================
-            const warningDom = document.getElementById('rainWarning');
-            
-            // 1. 上班 + 下班 都下雨
-            if (rain0809Count >= 2 && rain1819Count >= 2) {
-                warningDom.innerText = "⚠️ 完了！今天要成落汤鸡了！8-9点、18-19点全是雨！务必带好雨具 ⚠️";
-                warningDom.classList.remove('hidden');
-            }
-            // 2. 仅 08:00-09:00 下雨
-            else if (rain0809Count >= 2) {
-                warningDom.innerText = "⚠️ 强提醒：今日 08:00-09:00 有雨！上班注意带伞 ⚠️";
-                warningDom.classList.remove('hidden');
-            }
-            // 3. 仅 18:00-19:00 下雨
-            else if (rain1819Count >= 2) {
-                warningDom.innerText = "⚠️ 强提醒：今日 18:00-19:00 有雨！下班注意带伞 ⚠️";
-                warningDom.classList.remove('hidden');
-            }
+        // 天气代码映射
+        function getWeatherDesc(code) {
+            const map = {
+                0: "晴", 1: "晴", 2: "晴", 3: "晴",
+                45: "雾", 48: "雾",
+                51: "毛毛雨", 53: "毛毛雨", 55: "毛毛雨",
+                56: "冻雨", 57: "冻雨",
+                61: "小雨", 63: "中雨", 65: "大雨",
+                66: "冻雨", 67: "冻雨",
+                71: "小雪", 73: "中雪", 75: "大雪",
+                77: "雪粒",
+                80: "小雨", 81: "中雨", 82: "大雨",
+                85: "小雪", 86: "大雪",
+                95: "雷暴", 96: "雷暴", 99: "雷暴"
+            };
+            return map[code] || "未知";
+        }
+        function getWeatherIcon(code) {
+            const map = {
+                0: "☀️", 1: "🌤️", 2: "⛅", 3: "☁️",
+                45: "🌫️", 48: "🌫️",
+                51: "🌦️", 53: "🌦️", 55: "🌧️",
+                56: "🌧️❄️", 57: "🌧️❄️",
+                61: "🌧️", 63: "🌧️", 65: "🌧️💧",
+                66: "🌧️❄️", 67: "🌧️❄️",
+                71: "❄️", 73: "❄️", 75: "❄️❄️",
+                77: "❄️",
+                80: "🌦️", 81: "🌧️", 82: "🌧️💧",
+                85: "❄️", 86: "❄️❄️",
+                95: "⛈️", 96: "⛈️", 99: "⛈️"
+            };
+            return map[code] || "🌡️";
         }
 
-        // 6小时间隔时段
-        function renderHourlyRain() {
-            const container = document.getElementById('hourlyRainForecast');
-            hourlyData.forEach((item) => {
-                const card = document.createElement('div');
-                card.className = "bg-white rounded-lg p-3 shadow-sm border border-gray-200";
-                card.innerHTML = `
-                    <p class="text-sm font-medium text-gray-700">${item.time}</p>
-                    <p class="text-lg font-bold text-blue-600 mt-1">${item.rate}</p>
+        // 获取小时级数据（未来24小时）和每日预报
+        async function fetchWeather(lat, lon, locationName) {
+            // 显示加载状态
+            document.getElementById('currentWeather').innerHTML = `<div class="loading-spinner"></div>`;
+            document.getElementById('hourlyRainForecast').innerHTML = `<div class="col-span-4 text-center py-4">加载天气数据...</div>`;
+            document.getElementById('dailyForecast').innerHTML = `<div class="col-span-3 text-center py-4">加载中...</div>`;
+            document.getElementById('workRainRate').innerText = '--%';
+            document.getElementById('offRainRate').innerText = '--%';
+            document.getElementById('rainWarning').classList.add('hidden');
+
+            try {
+                // 获取当前时间，用于计算接下来24小时的小时索引
+                const now = new Date();
+                const timezone = 'Asia/Shanghai';
+                // 请求：当前天气 + 小时级（降水概率、温度、天气代码）+ 未来3天每日预报
+                const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,weather_code,wind_speed_10m&hourly=precipitation_probability,temperature_2m,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min&timezone=${timezone}&forecast_days=3`;
+                const resp = await fetch(url);
+                if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+                const data = await resp.json();
+
+                // 更新位置名称显示
+                document.getElementById('location-name').innerHTML = `📍 ${locationName}`;
+
+                // 1. 当前天气
+                const currentTemp = Math.round(data.current.temperature_2m);
+                const currentCode = data.current.weather_code;
+                const currentWind = data.current.wind_speed_10m;
+                document.getElementById('currentWeather').innerHTML = `
+                    <div class="weather-icon">${getWeatherIcon(currentCode)}</div>
+                    <div>${getWeatherDesc(currentCode)} | ${currentTemp}℃</div>
+                    <div class="text-gray-600 text-sm">💨 风速 ${currentWind} km/h</div>
                 `;
-                container.appendChild(card);
+
+                // 2. 处理小时数据（获取今天和明天的 08:00, 09:00, 18:00, 19:00 的降水概率）
+                const hourlyTimes = data.hourly.time;
+                const hourlyProbs = data.hourly.precipitation_probability;
+                // 获取当前日期字符串 YYYY-MM-DD
+                const todayStr = now.toISOString().slice(0,10);
+                const tomorrowDate = new Date(now);
+                tomorrowDate.setDate(now.getDate() + 1);
+                const tomorrowStr = tomorrowDate.toISOString().slice(0,10);
+
+                // 找到今天和明天 08:00, 09:00, 18:00, 19:00 的概率
+                function getProbForHour(dateStr, hour) {
+                    const targetTime = `${dateStr}T${hour.toString().padStart(2,'0')}:00`;
+                    const idx = hourlyTimes.indexOf(targetTime);
+                    if (idx !== -1 && idx < hourlyProbs.length) return hourlyProbs[idx];
+                    return null;
+                }
+                // 上班时段（08-09）平均概率
+                let workProbs = [];
+                let prob0809_today = getProbForHour(todayStr, 8);
+                let prob0900_today = getProbForHour(todayStr, 9);
+                if (prob0809_today !== null) workProbs.push(prob0809_today);
+                if (prob0900_today !== null) workProbs.push(prob0900_today);
+                // 如果今天没有，尝试明天（例如深夜查看第二天上班）
+                if (workProbs.length === 0) {
+                    let prob0809_tom = getProbForHour(tomorrowStr, 8);
+                    let prob0900_tom = getProbForHour(tomorrowStr, 9);
+                    if (prob0809_tom !== null) workProbs.push(prob0809_tom);
+                    if (prob0900_tom !== null) workProbs.push(prob0900_tom);
+                }
+                const workAvg = workProbs.length ? Math.round(workProbs.reduce((a,b)=>a+b,0)/workProbs.length) : 0;
+
+                // 下班时段（18-19）
+                let offProbs = [];
+                let prob1800_today = getProbForHour(todayStr, 18);
+                let prob1900_today = getProbForHour(todayStr, 19);
+                if (prob1800_today !== null) offProbs.push(prob1800_today);
+                if (prob1900_today !== null) offProbs.push(prob1900_today);
+                if (offProbs.length === 0) {
+                    let prob1800_tom = getProbForHour(tomorrowStr, 18);
+                    let prob1900_tom = getProbForHour(tomorrowStr, 19);
+                    if (prob1800_tom !== null) offProbs.push(prob1800_tom);
+                    if (prob1900_tom !== null) offProbs.push(prob1900_tom);
+                }
+                const offAvg = offProbs.length ? Math.round(offProbs.reduce((a,b)=>a+b,0)/offProbs.length) : 0;
+
+                document.getElementById('workRainRate').innerText = `${workAvg}%`;
+                document.getElementById('offRainRate').innerText = `${offAvg}%`;
+                document.getElementById('workRainStatus').innerHTML = workAvg >= 60 ? "⚠️ 有雨风险，请带伞" : "✅ 无雨，轻松出行";
+                document.getElementById('offRainStatus').innerHTML = offAvg >= 60 ? "⚠️ 有雨风险，注意防雨" : "✅ 无雨，愉快下班";
+
+                // 强提醒
+                if (workAvg >= 60 && offAvg >= 60) {
+                    const warnDiv = document.getElementById('rainWarning');
+                    warnDiv.innerText = "⚠️⚠️ 紧急提醒！早晚高峰均有大概率降雨！务必携带雨具！ ⚠️⚠️";
+                    warnDiv.classList.remove('hidden');
+                } else if (workAvg >= 60) {
+                    const warnDiv = document.getElementById('rainWarning');
+                    warnDiv.innerText = "⚠️ 上班时段 (08-09点) 降雨概率偏高，请注意防范！";
+                    warnDiv.classList.remove('hidden');
+                } else if (offAvg >= 60) {
+                    const warnDiv = document.getElementById('rainWarning');
+                    warnDiv.innerText = "⚠️ 下班时段 (18-19点) 降雨概率偏高，请记得带伞！";
+                    warnDiv.classList.remove('hidden');
+                }
+
+                // 3. 逐6小时降雨概率（未来24小时，按实际小时分组）
+                const startIdx = hourlyTimes.findIndex(t => t >= now.toISOString().slice(0,16)+':00');
+                const validStart = startIdx !== -1 ? startIdx : 0;
+                const periods = [
+                    { name: "00:00-06:00", hours: [0,1,2,3,4,5] },
+                    { name: "06:00-12:00", hours: [6,7,8,9,10,11] },
+                    { name: "12:00-18:00", hours: [12,13,14,15,16,17] },
+                    { name: "18:00-24:00", hours: [18,19,20,21,22,23] }
+                ];
+                // 获取从现在开始24小时内的数据（最多24个点）
+                const futureProbs = [];
+                for (let i = validStart; i < Math.min(validStart+24, hourlyProbs.length); i++) {
+                    const timeStr = hourlyTimes[i];
+                    const hour = new Date(timeStr).getHours();
+                    futureProbs.push({ hour, prob: hourlyProbs[i] });
+                }
+                function avgProbForPeriod(periodHours) {
+                    let sum = 0, count = 0;
+                    for (let item of futureProbs) {
+                        if (periodHours.includes(item.hour)) {
+                            sum += item.prob;
+                            count++;
+                        }
+                    }
+                    return count ? Math.round(sum/count) : 0;
+                }
+                const periodData = periods.map(p => ({
+                    name: p.name,
+                    prob: avgProbForPeriod(p.hours)
+                }));
+
+                const hourContainer = document.getElementById('hourlyRainForecast');
+                hourContainer.innerHTML = periodData.map(p => `
+                    <div class="bg-white rounded-lg p-3 shadow-sm border text-center">
+                        <p class="text-sm font-medium">${p.name}</p>
+                        <p class="text-xl font-bold text-blue-600">${p.prob}%</p>
+                    </div>
+                `).join('');
+
+                // 4. 未来3天预报
+                const dailyTimes = data.daily.time;
+                const dailyWeatherCodes = data.daily.weather_code;
+                const dailyMax = data.daily.temperature_2m_max;
+                const dailyMin = data.daily.temperature_2m_min;
+                const dailyContainer = document.getElementById('dailyForecast');
+                let dailyHtml = '';
+                for (let i = 0; i < Math.min(3, dailyTimes.length); i++) {
+                    const date = new Date(dailyTimes[i]);
+                    const weekday = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'][date.getDay()];
+                    const month = date.getMonth()+1;
+                    const day = date.getDate();
+                    const icon = getWeatherIcon(dailyWeatherCodes[i]);
+                    const desc = getWeatherDesc(dailyWeatherCodes[i]);
+                    const maxT = Math.round(dailyMax[i]);
+                    const minT = Math.round(dailyMin[i]);
+                    dailyHtml += `
+                        <div class="bg-white rounded-xl p-4 text-center shadow-sm border">
+                            <p class="font-bold">${month}/${day} (${weekday})</p>
+                            <div class="text-4xl my-2">${icon}</div>
+                            <p class="text-gray-600">${desc}</p>
+                            <p class="font-bold text-lg">${maxT}° / ${minT}°</p>
+                        </div>
+                    `;
+                }
+                dailyContainer.innerHTML = dailyHtml;
+
+            } catch (err) {
+                console.error(err);
+                document.getElementById('currentWeather').innerHTML = `<div class="text-red-500">天气数据加载失败：${err.message}<br>请检查网络后刷新页面</div>`;
+                document.getElementById('hourlyRainForecast').innerHTML = `<div class="col-span-4 text-red-500">无法获取小时预报</div>`;
+                document.getElementById('dailyForecast').innerHTML = `<div class="col-span-3 text-red-500">无法获取每日预报</div>`;
+            }
+        }
+
+        // 地理编码（城市名转经纬度）
+        async function geocodeCity(cityName) {
+            const url = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(cityName)}&count=1&language=zh&format=json`;
+            const resp = await fetch(url);
+            if (!resp.ok) throw new Error('地理编码服务失败');
+            const data = await resp.json();
+            if (data.results && data.results.length) {
+                const r = data.results[0];
+                return { lat: r.latitude, lon: r.longitude, name: r.name };
+            } else {
+                throw new Error(`未找到城市“${cityName}”`);
+            }
+        }
+
+        // 搜索按钮
+        async function onSearch() {
+            const city = document.getElementById('city-input').value.trim();
+            if (!city) return;
+            try {
+                const loc = await geocodeCity(city);
+                currentLat = loc.lat;
+                currentLon = loc.lon;
+                currentName = loc.name;
+                await fetchWeather(currentLat, currentLon, currentName);
+            } catch (err) {
+                alert(err.message);
+            }
+        }
+
+        // 自动定位（浏览器）
+        async function onAutoLocate() {
+            if (!navigator.geolocation) {
+                alert("您的浏览器不支持自动定位");
+                return;
+            }
+            navigator.geolocation.getCurrentPosition(async (pos) => {
+                currentLat = pos.coords.latitude;
+                currentLon = pos.coords.longitude;
+                currentName = "您的位置";
+                await fetchWeather(currentLat, currentLon, currentName);
+            }, async (err) => {
+                console.warn(err);
+                alert("定位失败，将使用珠村默认位置");
+                currentLat = DEFAULT_LAT;
+                currentLon = DEFAULT_LON;
+                currentName = DEFAULT_NAME;
+                await fetchWeather(currentLat, currentLon, currentName);
             });
         }
 
-        // 多平台
-        function renderPlatforms() {
-            const container = document.getElementById('weatherPlatforms');
-            weatherData.forEach(item => {
-                const card = document.createElement('div');
-                card.className = "bg-white border border-gray-200 rounded-xl p-4 text-center shadow-sm";
-                card.innerHTML = `
-                    <h3 class="font-bold text-gray-700 mb-2">${item.name}</h3>
-                    <p class="text-lg font-semibold">${item.weather}</p>
-                    <p class="text-gray-600">${item.tempMin}℃~${item.tempMax}℃</p>
-                    <p class="text-blue-600 text-sm mt-1">降水: ${item.rainRate}</p>
-                    <p class="text-xs text-gray-500 mt-1">8-9点:${item.rain0809?'✅':'❌'} 18-19点:${item.rain1819?'✅':'❌'}</p>
-                `;
-                container.appendChild(card);
-            });
-        }
+        // 绑定事件
+        document.getElementById('search-btn').addEventListener('click', onSearch);
+        document.getElementById('auto-locate-btn').addEventListener('click', onAutoLocate);
 
-        getFinalWeather();
-        renderHourlyRain();
-        renderPlatforms();
+        // 初始加载：展示珠村文华大街天气
+        fetchWeather(DEFAULT_LAT, DEFAULT_LON, DEFAULT_NAME);
     </script>
 </body>
 </html>
